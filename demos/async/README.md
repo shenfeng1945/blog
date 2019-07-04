@@ -118,7 +118,7 @@ data.next().value.then(filenames => {
     console.log(`largest file is ${data.next(res).value}`)
 });
 ```
-配合`co`模块效果更好,不使用`co`的话，执行Generator函数，得到遍历器对象，调用`next`方法分别执行异步任务三个阶段。
+配合`co`函数库效果更好,不使用`co`的话，执行Generator函数，得到遍历器对象，调用`next`方法分别执行异步任务三个阶段。
 
 #### Async
 
