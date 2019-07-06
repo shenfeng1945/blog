@@ -1,3 +1,7 @@
+/**
+ * 参考文章: https://juejin.im/post/5b83cb5ae51d4538cc3ec354
+ */
+
 const url = 'https://5b6d7d1dd8f3430014e796d6.mockapi.io/api/v1/records';
 const Pending = 'Pending';
 const FulFilled = 'FulFilled';
@@ -9,7 +13,9 @@ class MyPromise {
         }
         this._status = Pending;
         this._value = undefined;
+        // 添加成功回调函数队列
         this._fulfilledQueues = [];
+        // 添加失败回调函数队列
         this._rejectedQueues = [];
         try {
             handler(this._resolve.bind(this), this._reject.bind(this));
@@ -23,9 +29,33 @@ class MyPromise {
         const run = () => {
             this._status = FulFilled;
             this._value = val;
-            let cb;
-            while (cb = this._fulfilledQueues.shift()) {
-                cb(val)
+            const runFulfilled = (val) => {
+                let cb;
+                while (cb = this._fulfilledQueues.shift()) {
+                    cb(val)
+                }
+            }
+            const runRejected = (err) => {
+                let cb;
+                while (cb = this._rejectedQueues.shift()) {
+                    cb(err)
+                }
+            }
+            
+            if(val instanceof MyPromise){
+                val.then(value => {
+                    this._value = value;
+                    this._status = FulFilled;
+                    runFulfilled(value)
+                }, err => {
+                    this._value = err;
+                    this._status = Rejected;
+                    runRejected(err)
+                })
+            }else{
+                this._value = val;
+                this._status = FulFilled;
+                runFulfilled(val)
             }
         }
         setTimeout(() => run(), 0)
@@ -37,7 +67,7 @@ class MyPromise {
             this._status = Rejected;
             this._value = err;
             let cb;
-            while(cb = this._rejectedQueues.shift()){
+            while (cb = this._rejectedQueues.shift()) {
                 cb(err);
             }
         }
@@ -45,7 +75,10 @@ class MyPromise {
     }
 
     then(onFulfilled, onRejected) {
-        const { _value, _status } = this;
+        const {
+            _value,
+            _status
+        } = this;
         return new MyPromise((onFulfilledNext, onRejectedNext) => {
             let fulfilled = value => {
                 try {
@@ -93,9 +126,52 @@ class MyPromise {
             }
         })
     }
-    
-    catch(onRejected){
+
+    catch (onRejected) {
         return this.then(undefined, onRejected);
+    }
+    
+    static resolve(value){
+        if(value instanceof MyPromise) return value;
+        return new MyPromise(resolve => resolve(value))
+    }
+    
+    static reject(value){
+       return new MyPromise((resolve, reject) => reject(value))
+    }
+    
+    static all(list){
+        return new MyPromise((resolve, reject) => {
+            let values = [];
+            let count = 0;
+            for(let [i,value] of list.entries()){
+                this.resolve(value).then(res => {
+                    values[i] = res;
+                    count ++;
+                    // 最后一个异步执行完后,resolve
+                    if(count === list.length) resolve(values)
+                }, err => reject(err))
+            }
+        })
+    }
+    
+    static race(list){
+        return new MyPromise((resolve, reject) => {
+            for(let value of list){
+                this.resolve(value).then(res => {
+                    resolve(res)
+                }, err => {
+                    reject(err)
+                })
+            }
+        })
+    }
+    
+    static finally(cb){
+       return this.then(
+           value => MyPromise.resolve(cb()).then(() => value),
+           err => MyPromise.resolve(cb()).then(() => console.error(err))
+       )
     }
 }
 
@@ -115,4 +191,6 @@ function getError(err) {
     console.log(err, 'fail')
 }
 
-fetch(url).then(getResult, getError)
+
+fetch(url).then(res => console.log(res))
+
