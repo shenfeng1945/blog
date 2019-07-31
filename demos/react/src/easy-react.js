@@ -1,22 +1,10 @@
 // 声明编译指示
 
 /** @jsx EasyReact.createElement */
-function createElement(type, props, ...children){
-  props = Object.assign({}, props);
-  props.children = [].concat(...children)
-     .filter(child => child !== null && child !== false)
-     .map(child => child instanceof Object ? child : createTextElement(text))
-}
 
-const TEXT_ELEMENT = 'TEXT_ELEMENT';
-
-// 实现render： EasyReact.render()
-
-// rootInstance用来缓存一帧虚拟dom
-let rootInstance = null;
-// 调用reconcile进行两帧对比
-
-function updateDomProperties(dom, prevProps, nextProps) {
+  const TEXT_ELEMENT = 'TEXT_ELEMENT';
+  
+  function updateDomProperties(dom, prevProps, nextProps) {
     const isEvent = name => name.startsWith("on");
     const isAttribute = name => !isEvent(name) && name != "children";
 
@@ -43,7 +31,7 @@ function updateDomProperties(dom, prevProps, nextProps) {
     });
   }
   
-
+  let rootInstance = null;
   function render(element, parentDom) {
     const prevInstance = rootInstance;
     const nextInstance = reconcile(parentDom, prevInstance, element);
@@ -168,7 +156,14 @@ function updateDomProperties(dom, prevProps, nextProps) {
     return createElement(TEXT_ELEMENT, {nodeValue: value});
   }
   
-   
+  function createElement(type, props, ...children) {
+    props = Object.assign({}, props);
+    props.children = [].concat(...children)
+      .filter(child => child != null && child !== false)
+      .map(child => child instanceof Object ? child : createTextElement(child));
+    return {type, props};
+  }
+  
   function createPublicInstance(element, instance) {
     const {type, props} = element;
     const publicInstance = new type(props);
@@ -192,9 +187,10 @@ function updateDomProperties(dom, prevProps, nextProps) {
   }
   
   Component.prototype.isReactComponent = {};
+  
+  export {
+    render,
+    createElement,
+    Component
+  };
 
-export {
-  render,
-  createElement,
-  Component
-}

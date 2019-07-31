@@ -66,8 +66,5 @@ module.exports = {
                 removeAttributeQuotes: false
             }
     }),
-    new webpack.ProvidePlugin({
-            "React": "react",
-        }),
   ]
 }
