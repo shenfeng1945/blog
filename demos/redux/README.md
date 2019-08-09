@@ -139,7 +139,7 @@ store.changeState({
 
 需要理解的是createStore，提供了getState, subscribe和changeState三个方法。
 
-本节完整源码见[demo1](https://github.com/shenfeng1945/blog/demos/redux/demo1)
+本节完整源码见[demo1](https://https://github.com/shenfeng1945/blog/tree/master/demos/redux/demo1)
 
 #### 有计划的状态管理器
 
@@ -254,7 +254,7 @@ store.changeState({
 
 根据redux官方命名，我们把plan改成reducer，changeState改成dispatch。
 
-本节完整源码见[demo2](https://github.com/shenfeng1945/blog/demos/redux/demo2)
+本节完整源码见[demo2](https://https://github.com/shenfeng1945/blog/tree/master/demos/redux/demo2)
 
 ### 多文件协作
 
@@ -347,7 +347,7 @@ function combineReducers(reducers){
 }
 ```
 
-本小节完整源码见[demo3](https://github.com/shenfeng1945/blog/demos/redux/demo3)
+本小节完整源码见[demo3](https://https://github.com/shenfeng1945/blog/tree/master/demos/redux/demo3)
 
 #### state的拆分与合并
 
@@ -385,7 +385,7 @@ const store = createStore(reducer);
 console.log(store.getState())
 // {counter: {count: 0}, info: {...}}
 ```
-本小节完整源码见[demo4](https://github.com/shenfeng1945/blog/demos/redux/demo4)
+本小节完整源码见[demo4](https://https://github.com/shenfeng1945/blog/tree/master/demos/redux/demo4)
 
 ### 中间件 Middleware
 
@@ -640,7 +640,7 @@ function createStore(reducer, initState, rewriteCreateStoreFunc){
 }
 ```
 
-本节完整源码见[demo5](https://github.com/shenfeng1945/blog/demos/redux/demo5)
+本节完整源码见[demo5](https://https://github.com/shenfeng1945/blog/tree/master/demos/redux/demo5)
 
 ### 完整的Redux
 
@@ -776,4 +776,47 @@ const newReducer = combineReducer({
 const store = replaceReducer(newReducer)
 ```
 
-完整redux源码见[demo6](https://github.com/shenfeng1945/blog/demos/redux/demo6)
+完整redux源码见[demo6](https://https://github.com/shenfeng1945/blog/tree/master/demos/redux/demo6)
+
+### 最佳实践
+
+#### 纯函数
+
+相同的输入，永远会得到相同的输出，而且没有任何可观察的副作用。
+
+通俗来讲，有需符合两个要素
+
+1. 相同的输入，一定会得到相同的输出
+2. 不会有'触发事件'，更改输入参数，依赖外部参数，打印log等副作用。
+
+```js
+// 不是纯函数，同样的输入，输出结果不一致
+function a(count){
+  return count + Math.random()
+}
+
+// 不是纯函数，因为外部的arr被修改了
+let arr = [1, 2]
+function b(arr){
+  return arr.push(3)
+}
+b(arr)
+
+// 不是纯函数，因为依赖了外部的x
+let x = 1
+function c(count){
+  return count + x
+}
+```
+
+我们的reducer计划函数，就必须是一个纯函数!
+
+只有传入参数相同，返回计算得到的下一个 state 就一定相同。没有特殊情况、没有副作用，没有 API 请求、没有变量修改，单纯执行计算。
+
+![](https://i.loli.net/2019/08/09/7wMXnRTEzUACbjy.png)
+redux流程图
+
+
+#### 参考文章
+
+1. [完全理解 redux（从零实现一个 redux）](https://github.com/brickspert/blog/issues/22)
