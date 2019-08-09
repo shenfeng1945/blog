@@ -620,7 +620,7 @@ function createStore(reducer, initState, rewriteCreateStoreFunc){
 const store = createStore(reducer, undefined, applyMiddlewares(loggerMiddleware,exceptionMiddleware,timeMiddleware));
 ```
 
-#### createStore传参优化
+#### 省略initState
 
 从上节最终的用法中，发现`createStore`传递的第二个参数`initState`是`undefined`。
 
@@ -640,4 +640,140 @@ function createStore(reducer, initState, rewriteCreateStoreFunc){
 }
 ```
 
+本节完整源码见[demo5](https://github.com/shenfeng1945/blog/demos/redux/demo5)
 
+### 完整的Redux
+
+#### 退订
+
+既然`store.subscribe()`可以订阅state的变化，那么应该支持退订才对。
+
+`createStore`中，实现`subscribe`函数时，是将回调函数push到源数组里，要实现退订，只要把相应的回调函数从源数组里删除即可。
+
+```js
+function createStore(reducer, initState, rewriteCreateStoreFunc){
+  // ...
+  let listeners = [];
+  function subscribe(listener){
+    listeners.push(listener);
+    // 添加订阅时，返回一个可支持退订的函数。
+    return function (){
+      const index = listeners.indexOf(listeners);
+      listeners.splice(index, 1)
+    }
+  }
+}
+```
+
+使用方式如下: 
+
+```js
+const unsubscribe = store.subscribe(() => {
+  const state = store.getState();
+  textEl.textContent = state.counter.count;
+})
+
+// 退订
+unsubscribe();
+```
+
+#### 中间件拿到 store
+
+现在的中间件在传递store时，如`logger = loggerMiddleware(store)`，能拿到完整的store，任意中间件都可以修改我们的`subscribe`和`dispatch`方法，按照最小开放策略，我们只用把 getState 给中间件就可以了！因为我们只允许你用 getState 方法！
+
+```js
+// applyMiddlewares.js
+
+// const chain = middlewares.map(middleware => middleware(store))
+
+const newStore = {getState: store.getState}
+const chain = middlewares.map(middleware => middleware(newStore))
+```
+
+#### compose
+
+在我们的 `applyMiddleware`中，将`[a, b, c]`转换为 `a(b(c(next)))`是这样实现的。
+
+```js
+let next = store.dispatch;
+chain.forEach(middleware => {
+  next = middleware(next)
+})
+store.dispatch = next
+```
+
+redux提供了一个`compose`方式，可以帮我们做这个事情。
+
+```js
+const chain = [a, b, c];
+dispatch = compose(...chain)(store.dispatch)
+```
+
+看下s是如何实现的
+
+```js
+export default function compose(...funcs){
+  if(funcs.length === 1){
+    return funcs[0]
+  }
+  return funcs.reduce((a, b) => (...args) => a(b(...args)))
+}
+```
+
+这样我们便可以改造下`applyMiddleware`函数里的写法。
+
+```js
+// applyMiddleware.js
+
+// 改之前代码
+let next = store.dispatch;
+chain.forEach(middleware => {
+  next = middleware(next)
+})
+store.dispatch = next
+
+// 改之后代码
+store.dispatch = compose(...chain)(store.dispatch);
+```
+
+#### 2 行代码的 replaceReducer
+
+在将reducer拆分后，和组件时一一对应的。我们希望在做按需加载时，reducer也可以跟着组件在必要的时候在加载，然后用新的reducer替换老的reducer。
+
+```js
+function createStore(reducer, initState, rewriteCreateStoreFunc){
+  ...
+  
+  function replaceReducer(newReducer){
+    reducer = nextReducer;
+    dispatch({type: Symbol()})
+  }
+  
+  ...
+  
+  return {
+    ...
+    replaceReducer
+  }
+}
+
+```
+
+我们尝试使用下:
+
+```js
+const reducer = combineReducers({
+  counter: counterReducer
+})
+const store = createStore(reducer)
+
+// 生成新的reducer
+const newReducer = combineReducer({
+  counter: counterReducer,
+  info: infoReducer
+})
+
+const store = replaceReducer(newReducer)
+```
+
+完整redux源码见[demo6](https://github.com/shenfeng1945/blog/demos/redux/demo6)

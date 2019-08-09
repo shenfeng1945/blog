@@ -1,9 +1,8 @@
-import createStore from './createStore';
+import {createStore, applyMiddlewares} from './redux';
 import reducer from './reducers/index';
 import loggerMiddleware from './middlewares/loggerMiddleware';
 import exceptionMiddleware from './middlewares/exceptionMiddleware';
 import timeMiddleware from './middlewares/timeMiddleware';
-import applyMiddlewares from './applyMiddlewares';
 
 const textEl = document.querySelector('.text')
 const increaseEl = document.querySelector('.increase')

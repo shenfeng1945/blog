@@ -14,10 +14,19 @@ export default function createStore(reducer, initState, rewriteCreateStoreFunc){
   
   function subscribe(listener){
     listeners.push(listener);
+    return function(){
+      const index = listeners.indexOf(listener);
+      listeners.splice(index, 1)
+    }
   }
   
   function getState(){
     return state;
+  }
+  
+  function replaceReducer(newReducer){
+    reducer = newReducer;
+    dispatch({type: Symbol()})
   }
   
   function dispatch(action){
@@ -32,6 +41,7 @@ export default function createStore(reducer, initState, rewriteCreateStoreFunc){
   return {
     subscribe,
     dispatch,
-    getState
+    getState,
+    replaceReducer
   }
 }
