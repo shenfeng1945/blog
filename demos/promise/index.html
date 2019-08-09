@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Promise</title>
+</head>
+<body>
+  
+</body>
+<script src="./index.js"></script>
+
+<script>
+const url = 'https://5b6d7d1dd8f3430014e796d6.mockapi.io/api/v1/records';
+
+function fetch(url) {
+    return new MyPromise((resolve, reject) => {
+      //  ajax(url, resolve, reject)
+      setTimeout(() => {
+        resolve(url)
+      }, 200)
+    })
+}
+
+function ajax(url, cb, err){
+  let xhr = new XMLHttpRequest();
+  xhr.open('GET', url);
+  xhr.onreadystatechange = function(){
+    if(xhr.readyState === 4){
+      if(xhr.status >= 200 && xhr.status < 400){
+        cb(JSON.parse(xhr.response));
+      }else{
+        err('request error')
+      }
+    }
+  }
+  xhr.send();
+}
+
+function getResult(res) {
+    console.log(res, 'success')
+}
+
+function getError(err) {
+    console.log(err, 'fail')
+}
+
+
+fetch(url).then(getResult, getError)
+
+</script>
+</html>

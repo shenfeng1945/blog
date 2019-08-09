@@ -1,13 +1,14 @@
 /**
  * 参考文章: https://juejin.im/post/5b83cb5ae51d4538cc3ec354
  */
+(function(){
 
-const url = 'https://5b6d7d1dd8f3430014e796d6.mockapi.io/api/v1/records';
 const Pending = 'Pending';
 const FulFilled = 'FulFilled';
 const Rejected = 'Rejected';
 class MyPromise {
     constructor(handler) {
+        // 接受一个函数作为参数
         if ('function' !== typeof handler) {
             throw new Error('MyPromise must accept a function')
         }
@@ -41,7 +42,6 @@ class MyPromise {
                     cb(err)
                 }
             }
-            
             if(val instanceof MyPromise){
                 val.then(value => {
                     this._value = value;
@@ -174,23 +174,5 @@ class MyPromise {
        )
     }
 }
-
-function fetch(url) {
-    return new MyPromise((resolve, reject) => {
-        setTimeout(() => {
-            resolve(url)
-        }, 200)
-    })
-}
-
-function getResult(res) {
-    console.log(res, 'success')
-}
-
-function getError(err) {
-    console.log(err, 'fail')
-}
-
-
-fetch(url).then(res => console.log(res))
-
+window.MyPromise = MyPromise
+})()
