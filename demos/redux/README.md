@@ -350,3 +350,39 @@ function combineReducers(reducers){
 本小节完整源码见[demo3](https://github.com/shenfeng1945/blog/demos/redux/demo3)
 
 #### state的拆分与合并
+
+上一节，我们按照组件维度拆分了reducer，再借助`combineReducers`进行合并,由于项目中state往往存在多个，如果state还是写在一起，这样会造成 state树很庞大，不直观，很难维护。我们需要拆分state，一个reducer有一个state，代码如下:
+
+```js
+// counterReducer.js
+const initState = {
+  count: 0
+}
+function counterReducer(state, action){
+  if(!state) state = initState;
+  // ...
+}
+
+// infoReducer.js
+const initState = {
+  name: 'curry',
+  desc: 'NBA出色三分射手'
+}
+function infoReducer(state, action){
+  if(!state) state = initState;
+  // ...
+}
+```
+
+我们修改下`createStore`函数，增加一行`dispatch({type: Symbol()})`
+
+这样做的目的是调用createStore时,用一个不匹配任何 type 的 action,来触发 `state = reducer(state, action)`,因为action.type不匹配，每个子reducer都会进到default项，返回自己初始化的state,这样就获得了初始化的state树。
+
+正如下面代码那样: 
+
+```js
+const store = createStore(reducer);
+console.log(store.getState())
+// {counter: {count: 0}, info: {...}}
+```
+本小节完整源码见[demo4](https://github.com/shenfeng1945/blog/demos/redux/demo4)
