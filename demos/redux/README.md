@@ -386,3 +386,258 @@ console.log(store.getState())
 // {counter: {count: 0}, info: {...}}
 ```
 本小节完整源码见[demo4](https://github.com/shenfeng1945/blog/demos/redux/demo4)
+
+### 中间件 Middleware
+
+中间件是对 dispatch 的扩展，或者说重写，增强 dispatch 的功能!
+
+#### 记录日志
+
+现有这么个需求，每次修改state时，打印出state修改前的值，为什么修改，state修改后的值,通过重写dispatch来实现，代码如下:
+
+```js
+store = createStore(reducer)
+next  = store.dispatch;
+
+const loggerMiddleware = action => {
+  console.log('current state', store.getState())
+  console.log('action', action)
+  next(action)
+  console.log('next state', store.getState())
+}
+store.dispatch = loggerMiddleware;
+```
+
+将原来的`store.dispatch`进行二次封装成一个新函数，再赋值给`store.dispatch`。
+
+```js
+store.dispatch({type: 'increase'})
+
+// current state {counter: {count: 0}, info: {...}}
+// action {type: 'increase'}
+// next state {counter: {count: 1}, info: {...}}
+```
+
+等调用时控制台便会打印出`loggerMiddleware`函数的log记录。
+
+现在我们已实现一个记录 state 修改记录的功能。
+
+#### 记录异常
+
+现在又有另外一个需求，需要记录每次数据出错的原因，我们扩展下 dispatch
+
+```js
+store = createStore(reducer)
+next  = store.dispatch;
+
+const exceptionMiddleware = action => {
+  try{
+    next(action)
+  }catch(err){
+    console.error('出错啦:' err)
+  }
+}
+
+store.dispatch = exceptionMiddleware;
+```
+
+这样每次dispatch 出异常的时候，我们都会记录下来
+
+#### 多中间件的合作
+
+如果我们既要打印日志，又需要记录异常，怎么办? 很简单，将两个函数合起来。
+
+```js
+store = createStore(reducer)
+next  = store.dispatch;
+
+const loggerMiddleware = action => {
+  console.log('current state', store.getState())
+  console.log('action', action)
+  next(action)
+  console.log('next state', store.getState())
+}
+
+const exceptionMiddleware = action => {
+  try{
+    loggerMiddleware(action)
+  }catch(err){
+    console.error('出错啦:' err)
+  }
+}
+
+store.dispatch = exceptionMiddleware;
+```
+
+现在代码有个严重问题，就是`exceptionMiddleware`里写死了`loggerMiddleware`,我们需要让`next(action)`变成动态的，支持任意中间件。
+
+```js
+const exceptionMiddleware = next => action => {
+  try{
+    next(action)
+  }catch(err){
+    console.error('出错啦:' err)
+  }
+}
+// loggerMiddleware变成参数传进去
+store.dispatch = exceptionMiddleware(loggerMiddleware);
+```
+同样的，`loggerMiddleware`函数里的`next`需由原来的`store.dispatch`改为动态传入。
+
+```js
+const loggerMiddleware = next => action => {
+  console.log('current state', store.getState())
+  console.log('action', action)
+  next(action)
+  console.log('next state', store.getState())
+}
+
+store.dispatch = exceptionMiddleware(loggerMiddleware(next));
+```
+
+这样我们便可以新建两个文件`loggerMiddleware.js`和`exceptionMiddleware.js`，用来分别单独放置这两个中间件。
+
+此时，我们又遇到了一个问题，`loggerMiddleware`函数里，还依赖了`store`，我们把`store`作为参数传入就好了。
+
+```js
+const loggerMiddleware = store => next => action => {
+  console.log('current state', store.getState())
+  console.log('action', action)
+  next(action)
+  console.log('next state', store.getState())
+}
+
+const exceptionMiddleware = store => next => action => {
+  try{
+    next(action)
+  }catch(err){
+    console.error('出错啦:', err)
+  }
+}
+const exception = exceptionMiddleware(store);
+const logger = loggerMiddleware(store);
+
+store.dispatch = exception(logger(next));
+```
+
+到目前为止，我们已实现了两个可以独立的中间件啦!
+
+如果再加一个中间件，如记录修改state时的时间戳，直接写成这样既可: 
+
+```js
+const timeMiddleware = store => next => action => {
+  console.log('time',new Date().getTime())
+  next(action)
+}
+
+const time = timeMiddleware(store);
+store.dispatch = time(exception(logger(next)))
+```
+
+#### 中间件使用方式优化
+
+上节我们实现了可独立的中间件，但是中间件的使用不是很友好。
+
+```js
+import loggerMiddleware from './middlewares/loggerMiddleware';
+import exceptionMiddleware from './middlewares/exceptionMiddleware';
+import timeMiddleware from './middlewares/timeMiddleware';
+
+
+const store = createStore(reducer);
+const next = store.dispatch;
+
+const logger = loggerMiddleware(store);
+const exception = exceptionMiddleware(store);
+const time = timeMiddleware(store);
+
+store.dispatch = exception(time(logger(next)));
+```
+
+其实我们只需要知道三个中间件，其余细节应由`createStore`去扩展,期望可以这样使用:
+
+```js
+// 接受旧的createStore，返回新的createStore
+const newCreateStore = applyMiddlewares(loggerMiddleware, exceptionMiddleware, timeMiddleware)(createStore);
+
+store = newCreateStore(reducer, initState);
+```
+
+实现`applyMiddlewares`
+
+```js
+function applyMiddlewares(...middlewares){
+  // 返回一个重写的createStore方法，接受旧的createStore
+  return function rewriteCreateStoreFunc(oldCreateStore){
+    // 返回一个新的 createStore
+    return function newCreateStore(reducer, initState){
+      const store = oldCreateStore(reducer, initState);
+      // 给每个中间件传下 store，即 logger = loggerMiddleware(store);
+      // chain: [logger, exception, time];
+      const chain = middlewares.map(middleware => middleware(store))
+      let next = store.dispatch;
+      // 实现 exception(time(logger(next)))
+      chain.forEach(middleware => {
+        next = middleware(next);
+      })
+      store.dispatch = next
+      return store
+    }
+  }
+}
+```
+
+#### 让用户体验更好
+
+现在仍存在一个小问题，使用中间件与不使用中间件时，代码书写不一样。
+
+```js
+// 使用中间件
+const rewriteCreateStoreFunc = applyMiddlewares(loggerMiddleware,exceptionMiddleware,timeMiddleware)
+const newCreateStore = rewriteCreateStoreFunc(createStore);
+const store = newCreateStore(reducer);
+
+// 不使用中间件
+const store = createStore(reducer)
+```
+
+为了让用户统一起来，我们需改造下`createStore`,支持传入第三个参数，即`rewriteCreateStoreFunc`
+
+```js
+function createStore(reducer, initState, rewriteCreateStoreFunc){
+  if(rewriteCreateStoreFunc){
+    // 若存在 rewriteCreateStoreFunc ,则使用新的 createStore 
+    const newCreateStore = rewriteCreateStoreFunc(createStore)
+    return newCreateStore(reducer, iniState);
+  }
+  // ...
+}
+```
+
+最终的用法:
+
+```js
+const store = createStore(reducer, undefined, applyMiddlewares(loggerMiddleware,exceptionMiddleware,timeMiddleware));
+```
+
+#### createStore传参优化
+
+从上节最终的用法中，发现`createStore`传递的第二个参数`initState`是`undefined`。
+
+这是因为在state拆分与合并章节中，我们将initState写在了每个子reducer文件里，在`createStore`调用时，就不需要传递该值了，但写成undefined的形式，代码实在不美观。
+
+那有没有办法，在不需要传`initState`时，只用传两个参数就好，让`rewriteCreateStoreFunc`变成第二个参数?
+
+我们只要区分下`initState`和`rewriteCreateStoreFunc`的参数类型，即可判断，调用`createStore`时，有没有传递`initState`。
+
+```js
+function createStore(reducer, initState, rewriteCreateStoreFunc){
+  if(typeof initState === 'function'){
+    rewriteCreateStoreFunc = initState;
+    initState = undefined;
+  }
+  // ...
+}
+```
+
+
